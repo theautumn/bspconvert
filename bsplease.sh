@@ -1,5 +1,5 @@
 #!/bin/bash
-FILES=218*.pdf
+FILES=21*.pdf
 TEMPDIR=./temp
 
 mkdir -p ./temp
@@ -21,8 +21,9 @@ do
 
 
 		# Convert that single page to jpg
-		printf "Converting to jpg...\n\n"
-		convert -density 400 $TEMPDIR/1_gs.pdf $TEMPDIR/2_convert.jpg
+		printf "\nConverting PDF --> PNG...\n"
+		convert -density 400 $TEMPDIR/1_gs.pdf $TEMPDIR/2_convert.png
+		printf "done\n\n"
 
 		# Extract just the portions of the page we are interested in.
 		printf "Extracting interesting pieces of the page...\n\n"
@@ -31,7 +32,7 @@ do
 						-units PixelsPerInch\
 						-crop '100%x25%'\
 						-write $TEMPDIR/titlestrip.png\
-						$TEMPDIR/2_convert.jpg
+						$TEMPDIR/2_convert.png
 
 		mogrify -gravity East\
 						-density 800x800\
@@ -48,7 +49,7 @@ do
 						$TEMPDIR/titlestrip.png
 
 		tesseract $TEMPDIR/title.png $TEMPDIR/title bazaar
-		tesseract $TEMPDIR/numberdateiss.png numberdateiss bsp_number
+		tesseract $TEMPDIR/numberdateiss.png $TEMPDIR/numberdateiss bsp_number
 
 		printf "\n\n Title and Section\n"
 		printf '%s\n' '-----------------------'
