@@ -42,6 +42,7 @@ do
 		tesseract numberdateiss.png numberdateiss bsp_number
 
 		cat title.txt
-		cat numberdateiss.txt | tr -d -c '[0-9A-Za-z]' | \
-				sed -e 's/\(SECTION\)\(...\)\(...\)\(...\)\(Issue\)\([0-9]\)\([A-Z]*[a-z]*\)\([0-9]*\)/\1 \2-\3-\4 \5 \6 \7 \8/'
+		cat numberdateiss.txt
+#		cat numberdateiss.txt | tr -d -c '[0-9A-Za-z]' | \
+#				sed -e 's/\(SECTION\)\(...\)\(...\)\(...\)\(Issue\)\([0-9]\)\([A-Z]*[a-z]*\)\([0-9]*\)/\1 \2-\3-\4 \5 \6 \7 \8/'
 done

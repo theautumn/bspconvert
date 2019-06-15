@@ -1,0 +1,234 @@
+#!/bin/bash
+BPATH=$1  # Path to directory containing PDFs.
+OPATH=$2  # Path to output directory.
+LANG=$3   # See man tesseract > LANGUAGES
+MIN_WORDS=5     # Number of words required to accept pdftotext result.
+if [ $(echo "$LANG" | wc -c ) -lt 1 ]   # Language defaults to eng.
+    then
+        LANG='eng'
+fi
+# If the output path does not exist, attempt to create it.
+if [ ! -d "$OPATH" ]; then
+    mkdir -p "$OPATH"
+fi
+for FILEPATH in $BPATH*.pdf; do
+    # Extracts plain text content from a PDF.
+    #
+    # First, attempts to extract embedded text with pdftotext. If that fails,
+    #  converts the PDF to TIFF and attempts to perform OCR with Tesseract.
+    #
+    # Path to text file to be created. E.g. ./myfile.txt
+    OUTFILE=$OPATH$(basename $FILEPATH).txt
+    touch "$OUTFILE"    # The text file will be created regardless of whether
+                        #  text is successfully extracted.
+    # First attempt ot use pdftotext to extract embedded text.
+    echo -n "Attempting pdftotext extraction..."
+    pdftotext "$FILEPATH" "$OUTFILE"
+    FILESIZE=$(wc -w < "$OUTFILE")
+    echo "extracted $FILESIZE words."
+    # If that fails, try Tesseract.
+    if [[ $FILESIZE -lt $MIN_WORDS ]]
+        then
+            echo -n "Attempting OCR extraction..."
+			echo -n "Running convert..."
+            # Use imagemagick to convert the PDF to a high-rest multi-page TIFF.
+            convert -density 300 "$FILEPATH" -depth 8 -strip -background white \
+                    -alpha off ./temp.tiff > /dev/null 2>&1
+			echo -n "Running tesseract..."
+            # Then use Tesseract to perform OCR on the tiff.
+            tesseract ./temp.tiff "$OUTFILE" -l $LANG > /dev/null 2>&1
+            # We don't need then intermediate TIFF file, so discard it.
+            rm ./temp.tiff
+            FILESIZE=$(wc -w < "$OUTFILE")
+            echo "extracted $FILESIZE words."
+    fi
+done
+SECTION 21 8-] 12-503
+Issue 8, December 1979
+
+ 
+
+#!/bin/bash
+
+# call me as
+# wecocard_smart.sh 'bases, telephone set' 00004.tif
+
+FAST=""
+if [ X"$1" = X"--fast" ] ; then
+    shift
+    FAST="--fast"
+fi
+
+echo "==================== currently working on ===================="
+echo '-->'"$2"'<--'
+
+CODEWORD="$1"
+DIR=$( mktemp -p . -d )
+TMPPART=$( basename $DIR )
+#EXECDIR=../$( dirname $( which $0 ) )
+EXECDIR=~/Documents/annex/ephemera/scan
+ln "$2" "$DIR"/orig.tif
+pushd "$DIR"
+
+# attempt to snag only the title strip
+
+mogrify -gravity North\
+		-crop '100%x15%'\
+		-write titlestrip.png\
+		orig.tif
+
+mogrify -gravity West\
+		-crop '20%x100%'\
+		-write date.png\
+		titlestrip.png
+
+mogrify -gravity Center \
+		-crop '60%x100%'\
+		-write title.png\
+		titlestrip.png
+
+tesseract date.png date  2>/dev/null
+tesseract title.png title  2>/dev/null
+
+echo 'title block ocr results:'
+cat title.txt | sed -e 's/^/> /'
+
+# sometimes it misses the space after the comma, so add another one in
+# to be sure
+DATE=$( date -d "$(cat date.txt | grep '19[0-9][0-9]' | sed -e 's/,/, /g' | head -n 1)" +%Y-%m-%d )
+
+CARDNO=$( egrep -io "card no\.? [0-9]+[A-Z]*" title.txt | cut -d\  -f3 )
+CARDNO=${CARDNO:=1}
+
+$EXECDIR/wecosmartcard_partno $FAST "$CODEWORD" "$( egrep -i '[A-Z]+' title.txt | head -n 1 )"
+if [ -f partno.txt ] ; then
+    PART=$( cat partno.txt )
+    
+    echo date: $DATE
+    echo cardno: $CARDNO
+    echo partno: $PART
+    
+    popd
+
+    mkdir -p final
+    set -x
+    ln "$2" final/"${CODEWORD/, / - }, $PART, $CARDNO, $DATE.tif" || \
+	ln "$2" final/"${CODEWORD/, / - }, $PART, $CARDNO, $DATE, $TMPPART.tif"
+    
+    set +x
+else
+    echo "OCR read failure for" $2
+fi
+rm -fr "$DIR"
+
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+use Term::ReadLine;
+
+my $fast = 0;
+
+if ($ARGV[0] eq "--fast") {
+    $fast = 1;
+    shift @ARGV;
+}
+
+print "fast is " . $fast . "\n";
+
+# codeword is just the first bit of the codeword, to anchor the regex.
+# It's written inverted in the filename, but is written forwards on
+# the card.  First, convert from inverted form to straight form.
+my $cw = $ARGV[0];
+my $codeword = join(' ', reverse(split(/, /, $cw)));
+# extremely lazy attempt at making it deal with plurals
+$codeword =~ s/e?s$//;
+print "codeword: $codeword\n";
+
+my $title = $ARGV[1];
+
+my $code = "";
+my @code_list = [];
+
+my $done = 0;
+
+# *-)-
+
+$title =~ s|[^-&/ A-Za-z0-9]||g;
+
+# Starting with the OCRed title
+# > NO. 609A, B & C and 610A & B CAPACITORS
+# and the codeword
+# > capacitors
+# attempt to extract the text "609A, B & C and 610A & B"
+
+if ($title =~ /^(?:n ?[o0] )? *types? ['"“”]?(?<code>[-,A-Z0-9 &]*?)['"“”]? $codeword/i ||
+    $title =~ /$codeword (?:n ?[o0] )? *types? ['"“”]?(?<code>[-,A-Z0-9 &]*?)['"“”]?$/i ) {
+	$code = $+{code};
+	print "it's actually a $code\n";
+} elsif ($title =~ /^(?:n ?[o0] )? *(?<code>[-,A-Z0-9 &]*?) (?:type )?$codeword/i ||
+	 $title =~ /$codeword (?:n ?[o0] )? *(?<code>[-,A-Z0-9 &]*?) (?:type )?$/i ) {
+	$code = $+{code};
+	print "it's a $code\n";
+} elsif ($title =~ /^$codeword/i) {
+	$code = "";
+	@code_list = split(/ /, "");
+	print "it's a leader card\n";
+	goto done;
+} else {
+	print "not sure\n";
+	goto human;
+}
+
+# I standardized on "&" for unclear reasons
+$code =~ s/ AND / \& /g;
+
+# sometimes the ocr engine spits out crap
+$code =~ s/l/1/g;
+$code =~ s/ 8[65c] / \& /g;
+$code =~ s/ ac / \& /g;
+
+# skip human-requiring cases aggressively
+goto human if ($code =~ /^\s*$/);
+# goto human if ($code =~ /and/i);
+goto human if ($code =~ /&.*&/i);
+
+# This bit of code does its best to turn 
+# > "609A, B & C and 610A & B"
+# into "609a 609b 609c 610a 610b"
+# It's complicated and I don't really understand it today.
+
+@code_list = split(/ *[,&] */, $code);
+print "number ", join(':', @code_list), "\n";
+
+if ($#code_list >= 1 and $code_list[0] =~ /^([0-9]+)[A-Z]+$/) {
+	# simple part number
+	my $part = $1;
+	my @codes = map { $part . $_ } @code_list[1..$#code_list];
+	unshift @codes, $code_list[0];
+	@code_list = @codes;
+	$done = 1;
+}
+
+$done = 1 if (@code_list != []);
+
+ human:
+if ($done == 0) {
+    goto abort if ($fast == 1);
+    print "$title\n";
+    my $code_str;
+    my $term = Term::ReadLine->new('weco smartcard');
+    $code_str = $term->readline("enter a list of code numbers: ");
+    @code_list = split(' ', $code_str);
+}
+
+ done:
+{
+	open(my $fh, ">", "partno.txt");
+	print $fh join(' ', @code_list), "\n";
+	close($fh);
+}
+
+ abort:
+
+exit;
