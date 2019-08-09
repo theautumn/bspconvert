@@ -1,15 +1,31 @@
 #!/bin/bash
-FILES=./the-gauntlet/21*.pdf
-TEMPDIR=./temp
 
+## TODO
+## If filename contains a 9 digit BSP number, just use that, instead of
+## recognizing the number block. Else, process number block in upper right.
+
+
+FILES=./the-gauntlet/*.pdf
+TEMPDIR=./temp
+SECTION_REGEX="^([0-9]{3}.){2}([0-9]{3})(.*)"
 mkdir -p ./temp
 
 for f in $FILES
 do
 
-		printf "\n\nWorking on "$f
-		filename=$(basename $f)
-		sectionno=${filename:0:11}
+		filename=$(basename -- "$f")
+		printf "\n\nWorking on "$filename
+
+		# Checks to see if section number is in beginning of filename.
+		# If so, use it. If not, set flag so we can figure it out later.
+		if [[ $filename =~ $SECTION_REGEX ]]; then
+			printf "\nFilename contains BSP number. Using that for section."
+			sectionno=${filename:0:11}
+		else
+			printf "\nFilename DOES NOT contain BSP number. " 
+			printf "Setting flag to perform OCR on section header."
+			section_ocr_needed=true
+		fi
 
 		# gs extracts the first page of the PDF
 		printf  "\nGhostscripting...\n"
@@ -62,6 +78,9 @@ do
 		tesseract $TEMPDIR/6_title_masked.png $TEMPDIR/title bazaar quiet
 		tesseract $TEMPDIR/4_numberdateiss.png $TEMPDIR/numberdateiss bsp_number\
 						quiet
+		if [ "$section_ocr_needed" = true ] ; then
+			sectionno="$(cat $TEMPDIR/numberdateiss.txt | grep -Eo '([0-9]{3}.){2}([0-9]{3})')"
+		fi
 
 		printf "Title and Section\n"
 		printf '%s\n' '-----------------------'
@@ -78,5 +97,5 @@ do
 				-e 's/§/5/g' |  sed -e '/^$/d' >> output.txt
 
 		echo "" >> output.txt
-#		cat numberdateiss.txt
+		unset sectionno
 done
