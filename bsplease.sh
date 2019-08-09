@@ -1,5 +1,5 @@
 #!/bin/bash
-FILES=21*.pdf
+FILES=218-122*.pdf
 TEMPDIR=./temp
 
 mkdir -p ./temp
@@ -44,9 +44,17 @@ do
 		mogrify -gravity Center\
 						-density 400x400\
 						-units PixelsPerInch\
-						-crop '50%x70%+50+100'\
+						-crop '2190x690+50+150'\
 						-write $TEMPDIR/title.png\
 						$TEMPDIR/titlestrip.png
+
+		printf "Masking off lower left corner to fix text recognition...\n\n"
+		mogrify -gravity Center \
+						-size 2190x690 \
+						-fill 'rgba( 255, 215, 0 , 1 )' \
+						-draw 'rectangle 0,550 100,690' \
+						-write $TEMPDIR/title.png \
+						$TEMPDIR/title.png
 
 		tesseract $TEMPDIR/title.png $TEMPDIR/title bazaar
 		tesseract $TEMPDIR/numberdateiss.png $TEMPDIR/numberdateiss bsp_number
@@ -55,9 +63,15 @@ do
 		printf '%s\n' '-----------------------'
 
 		echo $sectionno
+		echo $sectionno >> output.txt
 		printf "\n"
-		cat $TEMPDIR/title.txt
+		echo "" >> output.txt
+		cat $TEMPDIR/title.txt | sed -e 's/NO\. I/NO. 1/g' -e '/^$/q' |\
+				sed -e '/^$/d'
+
+		cat $TEMPDIR/title.txt | sed -e 's/NO\. I/NO. 1/g' -e '/^$/q' |\
+				sed -e '/^$/d' >> output.txt
+
+		echo "" >> output.txt
 #		cat numberdateiss.txt
-#		cat numberdateiss.txt | tr -d -c '[0-9A-Za-z]' | \
-#				sed -e 's/\(SECTION\)\(...\)\(...\)\(...\)\(Issue\)\([0-9]\)\([A-Z]*[a-z]*\)\([0-9]*\)/\1 \2-\3-\4 \5 \6 \7 \8/'
 done
