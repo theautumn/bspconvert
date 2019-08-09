@@ -53,6 +53,7 @@ do
 						-size 2190x690 \
 						-fill 'rgba( 255, 215, 0 , 1 )' \
 						-draw 'rectangle 0,550 150,690' \
+						-draw 'rectangle 1600,550 2190,690' \
 						-write $TEMPDIR/6_title_masked.png \
 						$TEMPDIR/5_title.png
 
