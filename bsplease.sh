@@ -1,10 +1,11 @@
 #!/bin/bash
 
-## TODO
-## If filename contains a 9 digit BSP number, just use that, instead of
-## recognizing the number block. Else, process number block in upper right.
+# Define some colors
+red=$'\e[1;31m'
+yel=$'\e[1;33m'
+end=$'\e[0m'
 
-
+# Define some basic vars.
 FILES=./the-gauntlet/*.pdf
 TEMPDIR=./temp
 SECTION_REGEX="^([0-9]{3}.){2}([0-9]{3})(.*)"
@@ -22,7 +23,7 @@ do
 			printf "\nFilename contains BSP number. Using that for section."
 			sectionno=${filename:0:11}
 		else
-			printf "\nFilename DOES NOT contain BSP number. " 
+			printf "\n${yel}Warning:${end} Filename DOES NOT contain BSP number. " 
 			printf "Setting flag to perform OCR on section header."
 			section_ocr_needed=true
 		fi
@@ -76,9 +77,9 @@ do
 						$TEMPDIR/5_title.png
 
 		tesseract $TEMPDIR/6_title_masked.png $TEMPDIR/title bazaar quiet
-		tesseract $TEMPDIR/4_numberdateiss.png $TEMPDIR/numberdateiss bsp_number\
-						quiet
 		if [ "$section_ocr_needed" = true ] ; then
+			tesseract $TEMPDIR/4_numberdateiss.png $TEMPDIR/numberdateiss \
+					bsp_number quiet
 			sectionno="$(cat $TEMPDIR/numberdateiss.txt | grep -Eo '([0-9]{3}.){2}([0-9]{3})')"
 		fi
 
@@ -90,11 +91,7 @@ do
 		printf "\n"
 		echo "" >> output.txt
 		cat $TEMPDIR/title.txt | sed -e 's/NO\. I/NO. 1/g' -e '/^$/q' \
-				-e 's/§/5/g' |  sed -e '/^$/d'
-
-
-		cat $TEMPDIR/title.txt | sed -e 's/NO\. I/NO. 1/g' -e '/^$/q' \
-				-e 's/§/5/g' |  sed -e '/^$/d' >> output.txt
+				-e 's/§/5/g' |  sed -e '/^$/d' | tee output.txt
 
 		echo "" >> output.txt
 		unset sectionno
