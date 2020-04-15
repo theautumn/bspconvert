@@ -6,12 +6,13 @@ yel=$'\e[1;33m'
 end=$'\e[0m'
 
 # Define some basic vars.
-FILES=./the-gauntlet/*.pdf
+FILES=*.pdf
+FILESDIR=./datasets/
 TEMPDIR=./temp
 SECTION_REGEX="^([0-9]{3}.){2}([0-9]{3})(.*)"
 mkdir -p ./temp
 
-for f in $FILES
+for f in $FILESDIR/$FILES
 do
 
 		filename=$(basename -- "$f")
@@ -81,12 +82,13 @@ do
 			tesseract $TEMPDIR/4_numberdateiss.png $TEMPDIR/numberdateiss \
 					bsp_number quiet
 			sectionno="$(cat $TEMPDIR/numberdateiss.txt | grep -Eo '([0-9]{3}.){2}([0-9]{3})')"
+			issueno="$(ack -ho '(?<=ue )\d+' temp/numberdateiss.txt)"
 		fi
 
 		printf "Title and Section\n"
 		printf '%s\n' '-----------------------'
 
-		echo $sectionno
+		echo $sectionno "Issue:" $issueno
 		echo $sectionno >> output.txt
 		printf "\n"
 		echo "" >> output.txt
@@ -94,5 +96,8 @@ do
 				-e 's/§/5/g' |  sed -e '/^$/d' | tee output.txt
 
 		echo "" >> output.txt
+	
+		mv $FILESDIR/$filename ./done/$sectionno\_iss$issueno.pdf
+
 		unset sectionno
 done
