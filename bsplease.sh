@@ -1,19 +1,23 @@
 #!/bin/bash
 
+# A little script to make renaming Bell System Practices a bit easier."
+# Sarah Autumn, 2020
+# sarah@connectionsmuseum.org
+
 # Define some colors
 red=$'\e[1;31m'
 yel=$'\e[1;33m'
 end=$'\e[0m'
 
 # Define some basic vars.
-FILES=*.pdf
-FILESDIR=./datasets/
-TEMPDIR=./temp
+FILESDIR=in
+TEMPDIR=temp
 SECTION_REGEX="^([0-9]{3}.){2}([0-9]{3})(.*)"
 mkdir -p ./temp
 
-for f in $FILESDIR/$FILES
+for f in $FILESDIR/*.pdf
 do
+		test -f "$f" || printf "No PDFs in input directory\n" && exit
 
 		filename=$(basename -- "$f")
 		printf "\n\nWorking on "$filename
@@ -78,26 +82,36 @@ do
 						$TEMPDIR/5_title.png
 
 		tesseract $TEMPDIR/6_title_masked.png $TEMPDIR/title bazaar quiet
+
+		# If we need to process the section number, then lets do it.
 		if [ "$section_ocr_needed" = true ] ; then
-			tesseract $TEMPDIR/4_numberdateiss.png $TEMPDIR/numberdateiss \
-					bsp_number quiet
-			sectionno="$(cat $TEMPDIR/numberdateiss.txt | grep -Eo '([0-9]{3}.){2}([0-9]{3})')"
-			issueno="$(ack -ho '(?<=ue )\d+' temp/numberdateiss.txt)"
+			tesseract $TEMPDIR/4_numberdateiss.png $TEMPDIR/numberdateiss quiet
+			sectionno="$(grep -Eo '([0-9]{3}.){2}([0-9]{3})' $TEMPDIR/numberdateiss.txt)"
+			issueno="$(ack -ho '(?<=ue )\d+' $TEMPDIR/numberdateiss.txt)"
 		fi
 
 		printf "Title and Section\n"
 		printf '%s\n' '-----------------------'
 
+		#cat $TEMPDIR/numberdateiss.txt | sed -e 's/ue l/ue 1/g' | \
+		#		tee $TEMPDIR/numberdateiss.txt
 		echo $sectionno "Issue:" $issueno
-		echo $sectionno >> output.txt
 		printf "\n"
-		echo "" >> output.txt
 		cat $TEMPDIR/title.txt | sed -e 's/NO\. I/NO. 1/g' -e '/^$/q' \
 				-e 's/§/5/g' |  sed -e '/^$/d' | tee output.txt
 
-		echo "" >> output.txt
+		# If the section number we got from OCR is all bonkers, ask the user.
+		if [ -z "$sectionno" ] ; then
+			printf "\n"
+			printf "$red    Section number is all mangled:$end\n\n"
+			printf "    "
+			head -1 $TEMPDIR/numberdateiss.txt
+			printf "\nPlease enter the correct section number.\n"
+			read -p "Number: " sectionno
+			printf "\nThanks\n"
+		fi
 	
-		mv $FILESDIR/$filename ./done/$sectionno\_iss$issueno.pdf
+		cp $FILESDIR/$filename ./done/$sectionno\_iss$issueno.pdf
 
 		unset sectionno
 done
